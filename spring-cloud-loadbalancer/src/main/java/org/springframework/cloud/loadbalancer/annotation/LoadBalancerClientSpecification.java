@@ -28,6 +28,10 @@ import org.springframework.util.Assert;
  */
 public class LoadBalancerClientSpecification implements NamedContextFactory.Specification {
 
+	/*
+	      这个类.... 为啥不 lombok 呢!!!
+	 */
+
 	private String name;
 
 	private Class<?>[] configuration;

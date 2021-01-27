@@ -54,6 +54,7 @@ public class BlockingLoadBalancerClientAutoConfiguration {
 	@ConditionalOnMissingBean
 	public LoadBalancerClient blockingLoadBalancerClient(LoadBalancerClientFactory loadBalancerClientFactory,
 			LoadBalancerProperties properties) {
+		// 配置了一个默认的 LoadBalancerClient, 作用大概是: 通过 factory 对象调用相应的 LoadBalancer 选取 ServiceInstance
 		return new BlockingLoadBalancerClient(loadBalancerClientFactory, properties);
 	}
 

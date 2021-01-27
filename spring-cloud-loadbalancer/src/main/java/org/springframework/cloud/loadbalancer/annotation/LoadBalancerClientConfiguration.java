@@ -61,6 +61,7 @@ public class LoadBalancerClientConfiguration {
 	@ConditionalOnMissingBean
 	public ReactorLoadBalancer<ServiceInstance> reactorServiceInstanceLoadBalancer(Environment environment,
 			LoadBalancerClientFactory loadBalancerClientFactory) {
+		// 原来这个 loadbalancer.client.name 在这里使用了... 所以之前放进去还是有意义的.
 		String name = environment.getProperty(LoadBalancerClientFactory.PROPERTY_NAME);
 		return new RoundRobinLoadBalancer(
 				loadBalancerClientFactory.getLazyProvider(name, ServiceInstanceListSupplier.class), name);

@@ -74,6 +74,7 @@ public class RandomLoadBalancer implements ReactorServiceInstanceLoadBalancer {
 	}
 
 	private Response<ServiceInstance> getInstanceResponse(List<ServiceInstance> instances) {
+		// 产生一个随机数(有范围的: 0 - size-1), 以此作为下标来从 serviceInances 集合中返回一个 ServiceInstance
 		if (instances.isEmpty()) {
 			if (log.isWarnEnabled()) {
 				log.warn("No servers available for service: " + serviceId);

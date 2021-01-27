@@ -23,6 +23,12 @@ package org.springframework.cloud.client.loadbalancer;
  */
 public interface LoadBalancerLifecycle<RC, RES, T> {
 
+	/*
+	    onStart 是 choose 之前
+	    onStartRequest 是 execute 执行请求之前
+	    onComplete 分别是两个的方法执行之后
+	 */
+
 	/**
 	 * Allows to assess whether the lifecycle bean's callbacks should be executed. Some
 	 * examples of possible implementations could comprise of verifying whether the

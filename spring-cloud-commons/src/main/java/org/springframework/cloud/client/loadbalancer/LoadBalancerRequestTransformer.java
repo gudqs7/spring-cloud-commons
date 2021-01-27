@@ -29,6 +29,10 @@ import org.springframework.http.HttpRequest;
 @Order(LoadBalancerRequestTransformer.DEFAULT_ORDER)
 public interface LoadBalancerRequestTransformer {
 
+	/*
+	    用于在执行请求前干预请求对象(如日志)
+	 */
+
 	/**
 	 * Order for the load balancer request tranformer.
 	 */

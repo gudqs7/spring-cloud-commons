@@ -53,14 +53,40 @@ import org.springframework.web.client.RestTemplate;
 @ConditionalOnBean(LoadBalancerClient.class)
 @EnableConfigurationProperties(LoadBalancerProperties.class)
 public class LoadBalancerAutoConfiguration {
+	/*
+	 * 此类作用总结: 为用户自定义(如配置类中写了个@Bean + return new RestTemplate() 这种形式)的 RestTemplate
+	 * 添加一个拦截器, 在请求执行前进行拦截, 然后将请求数据的 host 作为 serviceId, 接着使用某个具体的 LoadBalancerClient 实现类
+	 * 调用其方法获取真实的 url. 若对应存在多个 url, 由其算法策略决定如何选择.
+	 *
+	 * 步骤:
+	 * 1.@Bean 加入一个 LoadBalancerRequestFactory, 并且带有用户自定义的 transformers(作用: 对选取真实 url 后的请求对象进行干预)
+	 * 2.@Bean 加入一个 LoadBalancerClient, 其作用是, 根据 serviceId 获取/选取真实 url, 以及执行请求
+	 * 3.@Bean 加入一个 LoadBalancerInterceptor, 即核心拦截器. 逻辑是: 获取 host, 调用 LoadBalancerRequestFactory 生成请求, 用 LoadBalancerClient 执行.
+	 * 4.@Bean 加入一个 RestTemplateCustomizer, 其作用是: 为给定的 RestTemplate 添加一个 LoadBalancerInterceptor.
+	 * 5.@Bean 加入一个 SmartInitializingSingleton, 作用是单例都加载后触发回调, 回调代码为:
+	 *      遍历所有的 RestTemplateCustomizer 和 restTemplates, 用 RestTemplateCustomizer 对 RestTemplate 做设置. 包括(4)刚刚加入的那个.
+	 *
+	 */
 
+	/**
+	 * 从容器中获取用户注入的 RestTemplate, 用于为其添加拦截器
+	 */
 	@LoadBalanced
 	@Autowired(required = false)
 	private List<RestTemplate> restTemplates = Collections.emptyList();
 
+	/**
+	 * 从容器中注入用户定义的 LoadBalancerRequestTransformer
+	 */
 	@Autowired(required = false)
 	private List<LoadBalancerRequestTransformer> transformers = Collections.emptyList();
 
+	/**
+	 * 写一个回调留到 bean 都加载了再触发 (Spring 会处理? 看源码没看到... 可能漏了一些 BeanPostProcessor, 回头再找找)
+	 * 这个回调的作用是, 将用户加入的 RestTemplate 添加拦截器
+	 * @param restTemplateCustomizers 为 RestTemplate 添加拦截器
+	 * @return
+	 */
 	@Bean
 	public SmartInitializingSingleton loadBalancedRestTemplateInitializerDeprecated(
 			final ObjectProvider<List<RestTemplateCustomizer>> restTemplateCustomizers) {
@@ -76,6 +102,7 @@ public class LoadBalancerAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public LoadBalancerRequestFactory loadBalancerRequestFactory(LoadBalancerClient loadBalancerClient) {
+		// 创建一个带 this.transformers 的 LoadBalancerRequestFactory 的 bean, 以便其他 @Bean 使用
 		return new LoadBalancerRequestFactory(loadBalancerClient, this.transformers);
 	}
 
@@ -86,12 +113,17 @@ public class LoadBalancerAutoConfiguration {
 		@Bean
 		public LoadBalancerInterceptor loadBalancerInterceptor(LoadBalancerClient loadBalancerClient,
 				LoadBalancerRequestFactory requestFactory) {
+			// 生产一个 请求 拦截器, 其需要 LoadBalancerRequestFactory 和 LoadBalancerClient
+			// LoadBalancerRequestFactory: 工厂
+			// LoadBalancerClient
 			return new LoadBalancerInterceptor(loadBalancerClient, requestFactory);
 		}
 
 		@Bean
 		@ConditionalOnMissingBean
 		public RestTemplateCustomizer restTemplateCustomizer(final LoadBalancerInterceptor loadBalancerInterceptor) {
+			// 是一个 RestTemplateCustomizer, 作用, 添加核心拦截器.
+			// 将 LoadBalancerInterceptor 这个拦截器加入到 restTemplate 对象中, 用于拦截请求, 修改请求 host 为具体 ip
 			return restTemplate -> {
 				List<ClientHttpRequestInterceptor> list = new ArrayList<>(restTemplate.getInterceptors());
 				list.add(loadBalancerInterceptor);

@@ -56,6 +56,7 @@ public class LoadBalancerClientFactory extends NamedContextFactory<LoadBalancerC
 
 	@Override
 	public ReactiveLoadBalancer<ServiceInstance> getInstance(String serviceId) {
+		// 从 serviceId 对应的容器中获取一个负载均衡算法实现类对象, 即 ReactorServiceInstanceLoadBalancer.
 		return getInstance(serviceId, ReactorServiceInstanceLoadBalancer.class);
 	}
 

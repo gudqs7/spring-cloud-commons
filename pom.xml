@@ -14,7 +14,7 @@
 		<groupId>org.springframework.cloud</groupId>
 		<artifactId>spring-cloud-build</artifactId>
 		<version>3.0.1-SNAPSHOT</version>
-		<relativePath/> <!-- lookup parent from repository -->
+<!--		<relativePath/> &lt;!&ndash; lookup parent from repository &ndash;&gt;-->
 	</parent>
 	<scm>
 		<url>https://github.com/spring-cloud/spring-cloud-commons</url>

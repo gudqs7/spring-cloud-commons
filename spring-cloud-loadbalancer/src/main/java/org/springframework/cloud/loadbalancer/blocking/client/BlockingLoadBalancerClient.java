@@ -67,6 +67,10 @@ public class BlockingLoadBalancerClient implements LoadBalancerClient {
 
 	@Override
 	public <T> T execute(String serviceId, LoadBalancerRequest<T> request) throws IOException {
+		// 遍历 LoadBalancerLifecycle 触发 onStart 钩子
+		// 调用 choose 方法选取一个 IP:PORT 得到包装类 ServiceInstance
+		// 遍历 LoadBalancerLifecycle 触发 onComplete 钩子
+		// 执行请求
 		String hint = getHint(serviceId);
 		LoadBalancerRequestAdapter<T, DefaultRequestContext> lbRequest = new LoadBalancerRequestAdapter<>(request,
 				new DefaultRequestContext(request, hint));
@@ -75,18 +79,26 @@ public class BlockingLoadBalancerClient implements LoadBalancerClient {
 						loadBalancerClientFactory.getInstances(serviceId, LoadBalancerLifecycle.class),
 						DefaultRequestContext.class, Object.class, ServiceInstance.class);
 		supportedLifecycleProcessors.forEach(lifecycle -> lifecycle.onStart(lbRequest));
+
+		// 从 serviceId 对应的容器中获取一个负载均衡算法实现类对象, 即 ReactorServiceInstanceLoadBalancer.
+		// 调用其 choose 方法. 从响应中获取 ServiceInstance 并返回.
 		ServiceInstance serviceInstance = choose(serviceId, lbRequest);
 		if (serviceInstance == null) {
 			supportedLifecycleProcessors.forEach(lifecycle -> lifecycle.onComplete(
 					new CompletionContext<>(CompletionContext.Status.DISCARD, lbRequest, new EmptyResponse())));
 			throw new IllegalStateException("No instances available for " + serviceId);
 		}
+		// 可以执行了
 		return execute(serviceId, serviceInstance, lbRequest);
 	}
 
 	@Override
 	public <T> T execute(String serviceId, ServiceInstance serviceInstance, LoadBalancerRequest<T> request)
 			throws IOException {
+		// 遍历 LoadBalancerLifecycle 触发 onStartRequest 钩子
+		// 调用 request.apply 方法执行请求(即进入之前 LoadBalancerRequestFactory 中的代码)
+		// 遍历 LoadBalancerLifecycle 触发 onComplete 钩子
+
 		DefaultResponse defaultResponse = new DefaultResponse(serviceInstance);
 		Set<LoadBalancerLifecycle> supportedLifecycleProcessors = LoadBalancerLifecycleValidator
 				.getSupportedLifecycleProcessors(
@@ -96,6 +108,7 @@ public class BlockingLoadBalancerClient implements LoadBalancerClient {
 		supportedLifecycleProcessors
 				.forEach(lifecycle -> lifecycle.onStartRequest(lbRequest, new DefaultResponse(serviceInstance)));
 		try {
+			// 请求调用前先使用 transformers 对原始请求对象进行一些改变处理后再执行请求
 			T response = request.apply(serviceInstance);
 			Object clientResponse = getClientResponse(response);
 			supportedLifecycleProcessors
@@ -143,10 +156,14 @@ public class BlockingLoadBalancerClient implements LoadBalancerClient {
 
 	@Override
 	public <T> ServiceInstance choose(String serviceId, Request<T> request) {
+		// 从 serviceId 对应的容器中获取一个负载均衡算法实现类对象, 即 ReactorServiceInstanceLoadBalancer.
+		// 调用其 choose 方法. 从响应中获取 ServiceInstance 并返回.
+
 		ReactiveLoadBalancer<ServiceInstance> loadBalancer = loadBalancerClientFactory.getInstance(serviceId);
 		if (loadBalancer == null) {
 			return null;
 		}
+		// 调用其 choose 方法. 从响应中获取 ServiceInstance 并返回.
 		Response<ServiceInstance> loadBalancerResponse = Mono.from(loadBalancer.choose(request)).block();
 		if (loadBalancerResponse == null) {
 			return null;

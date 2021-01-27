@@ -27,4 +27,8 @@ import org.springframework.cloud.client.ServiceInstance;
  */
 public interface ReactorServiceInstanceLoadBalancer extends ReactorLoadBalancer<ServiceInstance> {
 
+	/*
+	      这个类型就代表允许 查询 ServiceInstance 集合
+	 */
+
 }

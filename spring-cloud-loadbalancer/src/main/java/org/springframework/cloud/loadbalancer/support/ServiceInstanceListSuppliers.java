@@ -33,6 +33,10 @@ import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier;
  */
 public final class ServiceInstanceListSuppliers {
 
+	/*
+	    工具类: 将 ServiceInstance 数组转成 ServiceInstanceListSupplier, 啧啧... 响应式到底好不好?
+	 */
+
 	private ServiceInstanceListSuppliers() {
 		throw new IllegalStateException("Can't instantiate a utility class");
 	}

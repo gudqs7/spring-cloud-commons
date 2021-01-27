@@ -48,6 +48,7 @@ public class LoadBalancerRequestFactory {
 
 	public LoadBalancerRequest<ClientHttpResponse> createRequest(final HttpRequest request, final byte[] body,
 			final ClientHttpRequestExecution execution) {
+		// 生产一个请求包装类, 其令请求调用前先使用 transformers 对原始请求对象进行一些改变处理后再执行请求
 		return instance -> {
 			HttpRequest serviceRequest = new ServiceRequestWrapper(request, instance, this.loadBalancer);
 			if (this.transformers != null) {

@@ -50,8 +50,14 @@ import org.springframework.core.env.MapPropertySource;
 public abstract class NamedContextFactory<C extends NamedContextFactory.Specification>
 		implements DisposableBean, ApplicationContextAware {
 
+	/*
+	   默认为 loadbalancer
+	 */
 	private final String propertySourceName;
 
+	/*
+	   默认为 loadbalancer.client.name
+	 */
 	private final String propertyName;
 
 	private Map<String, AnnotationConfigApplicationContext> contexts = new ConcurrentHashMap<>();
@@ -60,6 +66,9 @@ public abstract class NamedContextFactory<C extends NamedContextFactory.Specific
 
 	private ApplicationContext parent;
 
+	/**
+	 * 默认为 LoadBalancerClientConfiguration.class
+	 */
 	private Class<?> defaultConfigType;
 
 	public NamedContextFactory(Class<?> defaultConfigType, String propertySourceName, String propertyName) {
@@ -85,6 +94,7 @@ public abstract class NamedContextFactory<C extends NamedContextFactory.Specific
 
 	@Override
 	public void destroy() {
+		// 获取所有子容器, 销毁, 清空, help GC
 		Collection<AnnotationConfigApplicationContext> values = this.contexts.values();
 		for (AnnotationConfigApplicationContext context : values) {
 			// This can fail, but it never throws an exception (you see stack traces
@@ -98,6 +108,7 @@ public abstract class NamedContextFactory<C extends NamedContextFactory.Specific
 		if (!this.contexts.containsKey(name)) {
 			synchronized (this.contexts) {
 				if (!this.contexts.containsKey(name)) {
+					// 结论: 容器里有点东西, 但不多...  主要是于父容器打通... 所以又啥都有了.
 					this.contexts.put(name, createContext(name));
 				}
 			}
@@ -106,6 +117,17 @@ public abstract class NamedContextFactory<C extends NamedContextFactory.Specific
 	}
 
 	protected AnnotationConfigApplicationContext createContext(String name) {
+		// 0.结合实现类 LoadBalancerClientFactory 做出如下注释
+		// 1.将 LoadBalancerAutoConfiguration 扫描到 configurations 注册到 name 对应的容器中.
+		//     这里的 name 其实就是 serviceId, 也就是说, 若我们想给某个容器加入一些东西, 则实现 LoadBalancerClientSpecification 时, name 需要与 serviceId 对应起来(相同)
+		// 2.当我上面那句没说啊... 原来 name 为 default. 开头是可以加入任意 serviceId 对应的容器的.........................(qiao)
+		// 3.为容器加入一个占位符解析器, 和一个 defaultConfigType(=LoadBalancerClientConfiguration.class, 作用配置一些 bean)
+		//     LoadBalancerClientConfiguration 会加入一个 RoundRobinLoadBalancer, 看来就是默认的负载均衡类了.
+		// 4.默认为加了一个名为 loadbalancer 的 PropertySource, 里面有一个 loadbalancer.client.name=serviceId 的配置....
+		// 5.设定父容器, 父容器通过 ApplicationContextAware 获得, 这样刚才那么辛苦的注册方式, 就仅适合于特性, 而非通用了.
+		// 6.设置名称(啥意义呢?), 然后调用容器的 refresh() 完成容器加载
+
+
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		if (this.configurations.containsKey(name)) {
 			for (Class<?> configuration : this.configurations.get(name).getConfiguration()) {
@@ -120,6 +142,7 @@ public abstract class NamedContextFactory<C extends NamedContextFactory.Specific
 			}
 		}
 		context.register(PropertyPlaceholderAutoConfiguration.class, this.defaultConfigType);
+		// 默认为加了一个名为 loadbalancer 的 PropertySource, 里面有一个 loadbalancer.client.name=serviceId 的配置....
 		context.getEnvironment().getPropertySources().addFirst(new MapPropertySource(this.propertySourceName,
 				Collections.<String, Object>singletonMap(this.propertyName, name)));
 		if (this.parent != null) {
@@ -150,10 +173,12 @@ public abstract class NamedContextFactory<C extends NamedContextFactory.Specific
 	}
 
 	public <T> ObjectProvider<T> getLazyProvider(String name, Class<T> type) {
+		// 懒加载, 封装一层 factory, 在使用具体方法是才会触发 getProvider 方法, 啊, 也就是下面👇的方法
 		return new ClientFactoryObjectProvider<>(this, name, type);
 	}
 
 	public <T> ObjectProvider<T> getProvider(String name, Class<T> type) {
+		// 实际的获取 ServiceInstanceListSupplier 的方法. 这个 ServiceInstanceListSupplier
 		AnnotationConfigApplicationContext context = getContext(name);
 		return context.getBeanProvider(type);
 	}
